@@ -344,4 +344,17 @@ export default {
   'about.footer': 'MIT ライセンスのオープンソース。',
   'about.source': 'GitHub のソースコード',
   'about.languages': '他の言語',
+
+  'presets.reset': 'リセット',
+  'presets.resetTitle': 'デフォルトのデザインに戻す（リンクとテキストはそのまま）',
+  'toast.reset': 'デザインを初期状態に戻しました。',
+  'ex.hint': 'QR Studio で作った例。クリックでスタイルを適用',
+  'ex.aria': 'QR Studio で作った例：{title}。このスタイルを使う',
+  'ex.social.title': '舞台裏をフォロー',
+  'ex.social.cta': 'フォローする',
+  'ex.event.eyebrow': '土曜 · 21:00',
+  'ex.event.title': '夏の夜のコンサート',
+  'ex.event.cta': 'チケットを買う',
+  'ex.card.eyebrow': '建築事務所',
+  'ex.card.desc': 'プロジェクト・連絡先・ポートフォリオ',
 };

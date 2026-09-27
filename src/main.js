@@ -13,7 +13,7 @@ import '@fontsource-variable/jetbrains-mono';
 import './styles.css';
 
 import { initI18n, t, locale, LOCALES, localeHref } from './i18n/index.js';
-import { FONTS, FORMATS, PRESETS } from './data.js';
+import { FONTS, FORMATS, PRESETS, DEFAULT_STATE } from './data.js';
 import { renderCard } from './render.js';
 import { store, library, deepMerge, shareUrl, isFresh } from './state.js';
 import { renderContent, renderStyle, refresh, bindControls } from './controls.js';
@@ -376,7 +376,28 @@ function saveDesign() {
   toast(t('toast.saved', { name }));
 }
 
+/** Back to the starting design, keeping what the code says (link, texts, logo choice) and the format. */
+function resetDesign() {
+  const s = store.get();
+  const d = structuredClone(DEFAULT_STATE);
+  const next = {
+    ...d,
+    url: s.url,
+    format: s.format,
+    text: { ...d.text, eyebrow: s.text.eyebrow, title: s.text.title, description: s.text.description, cta: s.text.cta, showLink: s.text.showLink },
+    logo: { ...d.logo, type: s.logo.type, icon: s.logo.icon, text: s.logo.text, image: s.logo.image },
+  };
+  if (next.logo.type !== 'none') next.qr.ecc = 'H';
+  const { w, h } = FORMATS[s.format];
+  if (w / h > 1.2) { next.layout = 'qr-right'; next.text.align = 'left'; }
+  store.replace(next);
+  appliedPreset = 'paper';
+  markPreset();
+  withUndo(t('toast.reset'));
+}
+
 $('#shuffleBtn').addEventListener('click', shuffle);
+$('#resetBtn').addEventListener('click', resetDesign);
 $('#saveBtn').addEventListener('click', saveDesign);
 
 /* ---------- logo upload ---------- */
@@ -677,6 +698,21 @@ document.addEventListener('keydown', (e) => {
   else if (key === '-') stepZoom(-1);
   else if (key === '0') { zoom = null; applyZoom(); }
 });
+
+/* ---------- examples in the "about" section (loaded only when it comes near) ---------- */
+
+new IntersectionObserver((entries, io) => {
+  if (!entries[0].isIntersecting) return;
+  io.disconnect();
+  import('./showcase.js').then(({ mountShowcase }) => mountShowcase($('#showStage'), (_, ex) => {
+    const p = PRESETS.find((x) => x.id === ex.preset);
+    store.replace(deepMerge(store.get(), { ...p.style, format: ex.format, layout: ex.layout, text: { ...p.style.text, align: ex.align || 'center' } }));
+    appliedPreset = p.id;
+    markPreset();
+    withUndo(t('toast.preset', { name: t(`preset.${p.id}`) }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
+}, { rootMargin: '400px' }).observe($('#about'));
 
 /* ---------- boot ---------- */
 

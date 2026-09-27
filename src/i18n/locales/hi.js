@@ -344,4 +344,17 @@ export default {
   'about.footer': 'MIT लाइसेंस के तहत ओपन सोर्स।',
   'about.source': 'GitHub पर सोर्स कोड',
   'about.languages': 'इन भाषाओं में भी',
+
+  'presets.reset': 'रीसेट',
+  'presets.resetTitle': 'डिफ़ॉल्ट डिज़ाइन पर लौटें (लिंक और टेक्स्ट बने रहेंगे)',
+  'toast.reset': 'डिज़ाइन डिफ़ॉल्ट पर लौटाया गया।',
+  'ex.hint': 'QR Studio से बने उदाहरण — स्टाइल अपनाने के लिए क्लिक करें',
+  'ex.aria': 'QR Studio से बना उदाहरण: {title}। यह स्टाइल इस्तेमाल करें',
+  'ex.social.title': 'पर्दे के पीछे हमें फ़ॉलो करें',
+  'ex.social.cta': 'फ़ॉलो करें',
+  'ex.event.eyebrow': 'शनिवार · रात 9 बजे',
+  'ex.event.title': 'गर्मियों की रात का कॉन्सर्ट',
+  'ex.event.cta': 'टिकट लें',
+  'ex.card.eyebrow': 'आर्किटेक्चर स्टूडियो',
+  'ex.card.desc': 'प्रोजेक्ट, संपर्क और पोर्टफ़ोलियो',
 };

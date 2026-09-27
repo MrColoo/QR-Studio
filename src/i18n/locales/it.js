@@ -344,4 +344,17 @@ export default {
   'about.footer': 'Open source con licenza MIT.',
   'about.source': 'Codice sorgente su GitHub',
   'about.languages': 'Disponibile anche in',
+
+  'presets.reset': 'Ripristina',
+  'presets.resetTitle': 'Torna al design predefinito (link e testi restano)',
+  'toast.reset': 'Design riportato ai valori predefiniti.',
+  'ex.hint': 'Esempi creati con QR Studio: clicca per usarne lo stile',
+  'ex.aria': 'Esempio creato con QR Studio: {title}. Usa questo stile',
+  'ex.social.title': 'Seguici dietro le quinte',
+  'ex.social.cta': 'Segui',
+  'ex.event.eyebrow': 'Sabato · ore 21',
+  'ex.event.title': 'Concerto d’estate',
+  'ex.event.cta': 'Prendi i biglietti',
+  'ex.card.eyebrow': 'Studio di architettura',
+  'ex.card.desc': 'Progetti, contatti e portfolio',
 };

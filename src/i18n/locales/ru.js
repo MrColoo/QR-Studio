@@ -344,4 +344,17 @@ export default {
   'about.footer': 'Открытый код под лицензией MIT.',
   'about.source': 'Исходный код на GitHub',
   'about.languages': 'Также доступно на',
+
+  'presets.reset': 'Сбросить',
+  'presets.resetTitle': 'Вернуть дизайн по умолчанию (ссылка и тексты сохранятся)',
+  'toast.reset': 'Дизайн сброшен к исходному.',
+  'ex.hint': 'Примеры из QR Studio — нажмите, чтобы взять стиль',
+  'ex.aria': 'Пример из QR Studio: {title}. Использовать этот стиль',
+  'ex.social.title': 'Смотрите нас за кулисами',
+  'ex.social.cta': 'Подписаться',
+  'ex.event.eyebrow': 'Суббота · 21:00',
+  'ex.event.title': 'Летний концерт',
+  'ex.event.cta': 'Купить билеты',
+  'ex.card.eyebrow': 'Архитектурное бюро',
+  'ex.card.desc': 'Проекты, контакты и портфолио',
 };

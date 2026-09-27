@@ -344,4 +344,17 @@ export default {
   'about.footer': 'مفتوح المصدر بترخيص MIT.',
   'about.source': 'الشيفرة المصدرية على GitHub',
   'about.languages': 'متاح أيضًا باللغات',
+
+  'presets.reset': 'إعادة الضبط',
+  'presets.resetTitle': 'استعد التصميم الافتراضي (يبقى الرابط والنصوص)',
+  'toast.reset': 'أُعيد التصميم إلى الوضع الافتراضي.',
+  'ex.hint': 'أمثلة صُنعت باستخدام QR Studio — انقر لاستخدام نمطها',
+  'ex.aria': 'مثال صُنع باستخدام QR Studio: {title}. استخدم هذا النمط',
+  'ex.social.title': 'تابعنا خلف الكواليس',
+  'ex.social.cta': 'تابِع',
+  'ex.event.eyebrow': 'السبت · 9 مساءً',
+  'ex.event.title': 'حفل ليلة صيفية',
+  'ex.event.cta': 'احجز التذاكر',
+  'ex.card.eyebrow': 'مكتب هندسة معمارية',
+  'ex.card.desc': 'المشاريع والتواصل ومعرض الأعمال',
 };

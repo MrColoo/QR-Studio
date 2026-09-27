@@ -109,7 +109,10 @@
         <section class="block" aria-labelledby="h-presets">
           <div class="block-head">
             <h2 id="h-presets" data-i18n="presets.title">Presets</h2>
-            <button class="text-btn" id="shuffleBtn" type="button" data-i18n-attr="title:presets.shuffleTitle"><span data-icon="shuffle"></span><span data-i18n="presets.shuffle">Random</span></button>
+            <div class="head-actions">
+              <button class="text-btn" id="resetBtn" type="button" data-i18n-attr="title:presets.resetTitle"><span data-icon="reset"></span><span data-i18n="presets.reset">Reset</span></button>
+              <button class="text-btn" id="shuffleBtn" type="button" data-i18n-attr="title:presets.shuffleTitle"><span data-icon="shuffle"></span><span data-i18n="presets.shuffle">Random</span></button>
+            </div>
           </div>
           <div class="presets" id="presetGrid" role="list"></div>
         </section>
@@ -133,9 +136,20 @@
     <article class="about" id="about">
       <div class="about-inner">
         <header class="about-head">
-          <h1 data-i18n="about.h1">Free QR code generator with logo and text</h1>
-          <p class="lead" data-i18n="about.lead">QR Studio turns any link into a QR code you can print or share, with your logo, a line of text that says what it opens and colours that match your brand.</p>
-          <a class="btn primary" href="#stage" data-i18n="about.start">Start designing</a>
+          <div class="about-copy">
+            <h1 data-i18n="about.h1">Free QR code generator with logo and text</h1>
+            <p class="lead" data-i18n="about.lead">QR Studio turns any link into a QR code you can print or share, with your logo, a line of text that says what it opens and colours that match your brand.</p>
+            <a class="btn primary" href="#stage" data-i18n="about.start">Start designing</a>
+          </div>
+          <figure class="showcase">
+            <div class="show-stage" id="showStage">
+              <button type="button" class="fcard"><span class="fcard-float"><span class="fcard-tilt"><img alt="" width="1080" height="1350" decoding="async"></span></span></button>
+              <button type="button" class="fcard"><span class="fcard-float"><span class="fcard-tilt"><img alt="" width="1080" height="1080" decoding="async"></span></span></button>
+              <button type="button" class="fcard"><span class="fcard-float"><span class="fcard-tilt"><img alt="" width="1080" height="1350" decoding="async"></span></span></button>
+              <button type="button" class="fcard"><span class="fcard-float"><span class="fcard-tilt"><img alt="" width="1050" height="600" decoding="async"></span></span></button>
+            </div>
+            <figcaption class="show-hint" data-i18n="ex.hint">Examples made with QR Studio — click one to use its style</figcaption>
+          </figure>
         </header>
         <section aria-labelledby="h-steps">
           <h2 id="h-steps" data-i18n="about.stepsTitle">How to create a QR code</h2>

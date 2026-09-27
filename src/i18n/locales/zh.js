@@ -344,4 +344,17 @@ export default {
   'about.footer': '以 MIT 许可证开源。',
   'about.source': 'GitHub 上的源代码',
   'about.languages': '其他语言',
+
+  'presets.reset': '重置',
+  'presets.resetTitle': '恢复默认设计（链接和文字保留）',
+  'toast.reset': '已恢复默认设计。',
+  'ex.hint': '用 QR Studio 制作的示例，点击即可套用样式',
+  'ex.aria': '用 QR Studio 制作的示例：{title}。使用此样式',
+  'ex.social.title': '关注我们的幕后花絮',
+  'ex.social.cta': '关注',
+  'ex.event.eyebrow': '周六 · 21:00',
+  'ex.event.title': '夏夜音乐会',
+  'ex.event.cta': '购票',
+  'ex.card.eyebrow': '建筑事务所',
+  'ex.card.desc': '项目、联系方式与作品集',
 };

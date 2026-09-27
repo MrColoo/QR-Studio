@@ -344,4 +344,17 @@ export default {
   'about.footer': 'Open Source unter der MIT-Lizenz.',
   'about.source': 'Quellcode auf GitHub',
   'about.languages': 'Auch verfügbar auf',
+
+  'presets.reset': 'Zurücksetzen',
+  'presets.resetTitle': 'Standarddesign wiederherstellen (Link und Texte bleiben)',
+  'toast.reset': 'Design zurückgesetzt.',
+  'ex.hint': 'Beispiele aus QR Studio – klicken, um den Stil zu übernehmen',
+  'ex.aria': 'Beispiel aus QR Studio: {title}. Diesen Stil verwenden',
+  'ex.social.title': 'Folge uns hinter die Kulissen',
+  'ex.social.cta': 'Folgen',
+  'ex.event.eyebrow': 'Samstag · 21 Uhr',
+  'ex.event.title': 'Sommernachtskonzert',
+  'ex.event.cta': 'Tickets holen',
+  'ex.card.eyebrow': 'Architekturbüro',
+  'ex.card.desc': 'Projekte, Kontakt und Portfolio',
 };

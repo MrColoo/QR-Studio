@@ -345,4 +345,17 @@ export default {
   'about.footer': 'Open source under the MIT licence.',
   'about.source': 'Source code on GitHub',
   'about.languages': 'Also available in',
+
+  'presets.reset': 'Reset',
+  'presets.resetTitle': 'Restore the default design (your link and texts stay)',
+  'toast.reset': 'Design restored to default.',
+  'ex.hint': 'Examples made with QR Studio — click one to use its style',
+  'ex.aria': 'Example made with QR Studio: {title}. Use this style',
+  'ex.social.title': 'Follow us behind the scenes',
+  'ex.social.cta': 'Follow',
+  'ex.event.eyebrow': 'Saturday · 9 pm',
+  'ex.event.title': 'Summer night concert',
+  'ex.event.cta': 'Get tickets',
+  'ex.card.eyebrow': 'Architecture studio',
+  'ex.card.desc': 'Projects, contacts and portfolio',
 };

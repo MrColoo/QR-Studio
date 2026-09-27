@@ -344,4 +344,17 @@ export default {
   'about.footer': 'MIT 라이선스 오픈 소스.',
   'about.source': 'GitHub 소스 코드',
   'about.languages': '다른 언어',
+
+  'presets.reset': '초기화',
+  'presets.resetTitle': '기본 디자인으로 되돌리기 (링크와 문구는 유지)',
+  'toast.reset': '디자인을 기본값으로 되돌렸습니다.',
+  'ex.hint': 'QR Studio로 만든 예시 — 클릭해 스타일 적용',
+  'ex.aria': 'QR Studio로 만든 예시: {title}. 이 스타일 사용하기',
+  'ex.social.title': '비하인드를 팔로우하세요',
+  'ex.social.cta': '팔로우',
+  'ex.event.eyebrow': '토요일 · 오후 9시',
+  'ex.event.title': '여름밤 콘서트',
+  'ex.event.cta': '티켓 예매',
+  'ex.card.eyebrow': '건축 사무소',
+  'ex.card.desc': '프로젝트, 연락처, 포트폴리오',
 };
