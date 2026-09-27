@@ -472,7 +472,7 @@ textarea.input { resize: vertical; min-height: 38px; line-height: 1.45; }
   background: repeating-conic-gradient(#e7e5e0 0 25%, #ffffff 0 50%) 0 0 / 16px 16px;
 }
 .sheet-caption {
-  position: absolute; inset-inline-start: 0; top: calc(100% + 14px);
+  position: absolute; inset-inline-start: 0; top: calc(100% + 26px); /* clear of the crop marks */
   font: 400 11px var(--mono); color: var(--ink-3);
   white-space: nowrap;
 }

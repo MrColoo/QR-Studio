@@ -1,13 +1,14 @@
 {
   "name": "qr-studio",
   "version": "1.0.0",
-  "description": "Generatore di QR code moderni e personalizzabili",
+  "description": "Design custom QR codes with a logo, a caption and your own style. Runs entirely in the browser.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "glyphs": "node scripts/build-glyphs.mjs",
-    "assets": "node scripts/build-assets.mjs"
+    "assets": "node scripts/build-assets.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "type": "module",
   "dependencies": {
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@phosphor-icons/core": "^2.1.1",
     "linkedom": "^0.18.13",
+    "puppeteer-core": "^25.12.0",
     "sharp": "^0.35.4",
     "vite": "^8.3.1"
   },
@@ -37,8 +39,19 @@
   "license": "MIT",
   "keywords": [
     "qr-code",
-    "qr-generator",
+    "qr-code-generator",
+    "qr",
+    "svg",
     "vite",
-    "svg"
-  ]
+    "i18n",
+    "open-source"
+  ],
+  "homepage": "https://mrcoloo.github.io/QR-Studio/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrColoo/QR-Studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrColoo/QR-Studio/issues"
+  }
 }
