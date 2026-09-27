@@ -77,18 +77,18 @@ function hash(r, c) {
 /* ---------- data modules ---------- */
 
 export const DOT_STYLES = [
-  { id: 'square', label: 'Quadrati' },
-  { id: 'rounded', label: 'Morbidi' },
-  { id: 'liquid', label: 'Liquidi' },
-  { id: 'dots', label: 'Punti' },
-  { id: 'mini', label: 'Pixel' },
-  { id: 'leaf', label: 'Foglia' },
-  { id: 'diamond', label: 'Rombi' },
-  { id: 'sparkle', label: 'Stelle' },
-  { id: 'plus', label: 'Croci' },
-  { id: 'organic', label: 'Organico' },
-  { id: 'vlines', label: 'Verticali' },
-  { id: 'hlines', label: 'Orizzontali' },
+  { id: 'square' },
+  { id: 'rounded' },
+  { id: 'liquid' },
+  { id: 'dots' },
+  { id: 'mini' },
+  { id: 'leaf' },
+  { id: 'diamond' },
+  { id: 'sparkle' },
+  { id: 'plus' },
+  { id: 'organic' },
+  { id: 'vlines' },
+  { id: 'hlines' },
 ];
 
 /**
@@ -184,22 +184,22 @@ export function dotsPath(on, n, x0, y0, m, style, scale = 1) {
 /* ---------- finder patterns ("eyes") ---------- */
 
 export const EYE_OUTER = [
-  { id: 'square', label: 'Quadrato' },
-  { id: 'soft', label: 'Smussato' },
-  { id: 'rounded', label: 'Tondo' },
-  { id: 'circle', label: 'Cerchio' },
-  { id: 'leaf', label: 'Foglia' },
-  { id: 'drop', label: 'Goccia' },
+  { id: 'square' },
+  { id: 'soft' },
+  { id: 'rounded' },
+  { id: 'circle' },
+  { id: 'leaf' },
+  { id: 'drop' },
 ];
 
 export const EYE_INNER = [
-  { id: 'square', label: 'Quadrato' },
-  { id: 'soft', label: 'Smussato' },
-  { id: 'circle', label: 'Cerchio' },
-  { id: 'leaf', label: 'Foglia' },
-  { id: 'drop', label: 'Goccia' },
-  { id: 'diamond', label: 'Rombo' },
-  { id: 'sparkle', label: 'Stella' },
+  { id: 'square' },
+  { id: 'soft' },
+  { id: 'circle' },
+  { id: 'leaf' },
+  { id: 'drop' },
+  { id: 'diamond' },
+  { id: 'sparkle' },
 ];
 
 // corner indices: 0 tl, 1 tr, 2 br, 3 bl. `inward` is the corner facing the QR centre.

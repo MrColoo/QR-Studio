@@ -29,6 +29,15 @@ function wrap(text, font, size, weight, maxW, maxLines, tracking = 0) {
       const test = line ? `${line} ${w}` : w;
       if (!line || measure(test, font, size, weight, tracking) <= maxW) line = test;
       else { lines.push(line); line = w; }
+      // scripts without spaces (Chinese, Japanese…) or very long words: break between characters
+      while (measure(line, font, size, weight, tracking) > maxW) {
+        const chars = [...line];
+        if (chars.length < 2) break;
+        let cut = chars.length - 1;
+        while (cut > 1 && measure(chars.slice(0, cut).join(''), font, size, weight, tracking) > maxW) cut--;
+        lines.push(chars.slice(0, cut).join(''));
+        line = chars.slice(cut).join('');
+      }
     }
     lines.push(line);
   }
@@ -400,7 +409,7 @@ export function renderCard(s, opts = {}) {
   const style = opts.fontCSS ? `<style>${opts.fontCSS}</style>` : '';
 
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${f(W * scale)}" height="${f(H * scale)}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" direction="ltr" viewBox="0 0 ${W} ${H}" width="${f(W * scale)}" height="${f(H * scale)}">` +
     `<defs>${style}${defs}</defs>` +
     `<g clip-path="url(#${id}-card)">${bg.body}${bg.overlay}${plate}${qr.body}${text}${border}</g></svg>`;
 

@@ -12,16 +12,18 @@ import '@fontsource-variable/fraunces';
 import '@fontsource-variable/jetbrains-mono';
 import './styles.css';
 
+import { initI18n, t, locale, LOCALES, localeHref } from './i18n/index.js';
 import { FONTS, FORMATS, PRESETS } from './data.js';
 import { renderCard } from './render.js';
-import { store, library, deepMerge, shareUrl } from './state.js';
+import { store, library, deepMerge, shareUrl, isFresh } from './state.js';
 import { renderContent, renderStyle, refresh, bindControls } from './controls.js';
 import { icon } from './icons.js';
 import { scanContrast, randomStyle } from './color.js';
 import { exportBlob, download, fileName, copyImage, verifyScan } from './export.js';
 
-// Set once the project is published, so the menu can link to the source.
-const REPO_URL = '';
+// The head script may already be moving this visitor to their language: don't start (or save) anything here.
+if (window.__qrRedirect) await new Promise(() => {});
+await initI18n();
 
 const $ = (sel) => document.querySelector(sel);
 const prefs = {
@@ -37,6 +39,13 @@ function hydrateIcons(root = document) {
   });
 }
 
+// First visit: the starter card speaks the visitor's language.
+if (isFresh) {
+  const s = structuredClone(store.get());
+  for (const k of ['eyebrow', 'title', 'description', 'cta']) s.text[k] = t(`default.${k}`);
+  store.reset(s);
+}
+
 /* ---------- toasts ---------- */
 
 function toast(message, { kind = 'info', action, onAction } = {}) {
@@ -50,6 +59,7 @@ function toast(message, { kind = 'info', action, onAction } = {}) {
   requestAnimationFrame(() => el.classList.add('in'));
   setTimeout(close, action ? 5000 : 2600);
 }
+const withUndo = (message) => toast(message, { action: t('toast.undo'), onAction: undo });
 
 /* ---------- link ---------- */
 
@@ -78,11 +88,10 @@ function syncUrlField(force = false) {
   if (force || document.activeElement !== urlInput) urlInput.value = s.url;
   const state = urlValidity(s.url);
   $('#urlField').dataset.state = state;
-  const n = lastRender?.modules;
   $('#urlMeta').innerHTML =
-    state === 'empty' ? '<b>Serve un link.</b> Incollalo o scrivilo qui sopra.'
-    : state === 'warn' ? '<b>Non sembra un link completo.</b> Verrà codificato così com’è.'
-    : `Griglia ${n}×${n} · ${s.url.length} caratteri`;
+    state === 'empty' ? t('link.empty')
+    : state === 'warn' ? t('link.warn')
+    : t('link.meta', { n: lastRender?.modules, chars: s.url.length });
 }
 
 urlInput.addEventListener('input', () => store.set('url', normalizeUrl(urlInput.value)));
@@ -91,13 +100,13 @@ urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') urlInput.bl
 $('#pasteBtn').addEventListener('click', async () => {
   try {
     const text = (await navigator.clipboard.readText()).trim();
-    if (!text) return toast('Gli appunti sono vuoti.');
+    if (!text) return toast(t('toast.clipboardEmpty'));
     store.set('url', normalizeUrl(text));
     syncUrlField(true);
-    toast('Link incollato.');
+    toast(t('toast.pasted'));
   } catch {
     urlInput.focus();
-    toast('Il browser non consente di leggere gli appunti. Usa ⌘V.', { kind: 'error' });
+    toast(t('toast.pasteDenied'), { kind: 'error' });
   }
 });
 
@@ -119,11 +128,13 @@ function fitScale() {
 function applyZoom() {
   if (!lastRender) return;
   const scale = zoom ?? fitScale();
+  const p = Math.round(scale * 100);
   preview.style.width = `${lastRender.width * scale}px`;
   preview.style.height = `${lastRender.height * scale}px`;
   const zv = $('#zoomValue');
-  zv.textContent = `${Math.round(scale * 100)}%`;
-  zv.setAttribute('aria-label', zoom == null ? `Zoom ${Math.round(scale * 100)}%, adattato alla finestra. Passa a 100%` : `Zoom ${Math.round(scale * 100)}%. Adatta alla finestra`);
+  zv.textContent = `${p}%`;
+  zv.setAttribute('aria-label', t(zoom == null ? 'zoom.ariaFit' : 'zoom.aria', { p }));
+  zv.title = zv.getAttribute('aria-label');
 }
 
 function renderPreview() {
@@ -134,8 +145,8 @@ function renderPreview() {
   preview.classList.toggle('transparent', s.bg.type === 'none');
   preview.classList.toggle('rounded', s.card.radius > 0);
   const fmt = FORMATS[s.format];
-  $('#sheetCaption').textContent = `${fmt.label} ${fmt.ratio} · ${fmt.w} × ${fmt.h} px`;
-  preview.setAttribute('aria-label', `Anteprima del QR code per ${s.url || 'nessun link'}`);
+  $('#sheetCaption').textContent = `${t(`format.${s.format}`)} ${fmt.ratio} · ${fmt.w} × ${fmt.h} px`;
+  preview.setAttribute('aria-label', t('preview.aria', { url: s.url || t('preview.noLink') }));
   applyZoom();
   syncUrlField();
 }
@@ -167,7 +178,7 @@ stageScroll.addEventListener('wheel', (e) => {
 /* format switcher above the canvas */
 const formatSeg = $('#formatSeg');
 formatSeg.innerHTML = Object.entries(FORMATS).map(([k, f]) =>
-  `<button type="button" role="radio" data-value="${k}" aria-checked="false" title="${f.w} × ${f.h} px">${f.label}<small>${f.ratio}</small></button>`).join('');
+  `<button type="button" role="radio" data-value="${k}" aria-checked="false" title="${f.w} × ${f.h} px">${t(`format.${k}`)}<small>${f.ratio}</small></button>`).join('');
 formatSeg.addEventListener('click', (e) => {
   const b = e.target.closest('[data-value]');
   if (b) store.set('format', b.dataset.value);
@@ -189,7 +200,7 @@ function setStatus(state, tag, detail = '') {
 
 function scheduleScan() {
   clearTimeout(scanTimer);
-  setStatus('checking', 'Verifica', $('#scanDetail').textContent);
+  setStatus('checking', t('scan.checking'), $('#scanDetail').textContent);
   scanTimer = setTimeout(runScan, 500);
 }
 
@@ -202,12 +213,12 @@ async function runScan() {
   const c = scanContrast(s);
   lastScan = { ...result, contrast: c, hasLogo: s.logo.type !== 'none', ecc: s.qr.ecc, modules: lastRender?.modules, empty: !s.url };
 
-  const detail = `contrasto ${c.ratio.toFixed(1)}:1 · ${lastScan.modules}×${lastScan.modules} · ECC ${s.qr.ecc}`;
-  if (!s.url) setStatus('warn', 'Nessun link');
-  else if (!result.ok) setStatus('fail', 'Non leggibile', detail);
-  else if (c.ratio < 2) setStatus('fail', 'Contrasto insufficiente', detail);
-  else if (c.ratio < 3 || c.inverted) setStatus('warn', 'Leggibile, con riserva', detail);
-  else setStatus('ok', 'Leggibile', detail);
+  const detail = t('scan.detail', { r: c.ratio.toFixed(1), n: lastScan.modules, ecc: s.qr.ecc });
+  if (!s.url) setStatus('warn', t('scan.noLink'));
+  else if (!result.ok) setStatus('fail', t('scan.fail'), detail);
+  else if (c.ratio < 2) setStatus('fail', t('scan.lowContrast'), detail);
+  else if (c.ratio < 3 || c.inverted) setStatus('warn', t('scan.warn'), detail);
+  else setStatus('ok', t('scan.ok'), detail);
   if (!$('#scanPop').hidden) renderScanDetails();
 }
 
@@ -217,27 +228,28 @@ function renderScanDetails() {
   const row = (ok, title, text) =>
     `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}">${icon(ok === true ? 'check' : 'warning')}<div><b>${title}</b><span>${text}</span></div></li>`;
   const tips = [];
-  if (!d.empty && !d.ok) tips.push('Aumenta il contrasto tra moduli e piastra, scegli forme più piene (Quadrati, Morbidi, Liquidi) o alza la correzione errori.');
-  if (d.contrast.inverted) tips.push('Moduli chiari su fondo scuro: alcune app non li leggono. Per la stampa preferisci inchiostro scuro su fondo chiaro.');
-  if (d.hasLogo && d.ecc !== 'H') tips.push('Con un logo al centro imposta la correzione errori su H.');
+  if (!d.empty && !d.ok) tips.push(t('tip.fail'));
+  if (d.contrast.inverted) tips.push(t('tip.inverted'));
+  if (d.hasLogo && d.ecc !== 'H') tips.push(t('tip.logo'));
   const r = d.contrast.ratio;
+  const rs = r.toFixed(1);
   $('#scanDetails').innerHTML = `
     <ul class="checks">
-      ${row(d.empty ? null : d.ok, 'Decodifica', d.empty ? 'Aggiungi un link per generare il codice.' : d.ok ? 'L’anteprima è stata letta con ZXing, lo stesso motore di molte app di scansione.' : 'ZXing non riesce a leggere l’anteprima.')}
-      ${row(r >= 4.5 ? true : r >= 3 ? null : false, `Contrasto ${r.toFixed(1)}:1`, r >= 4.5 ? 'Ampio margine, anche con poca luce.' : r >= 3 ? 'Sufficiente a schermo, al limite in stampa.' : 'Troppo basso per una fotocamera: scurisci i moduli o schiarisci la piastra.')}
-      ${row(!d.contrast.inverted, d.contrast.inverted ? 'Colori invertiti' : 'Polarità standard', d.contrast.inverted ? 'Moduli chiari su fondo scuro.' : 'Moduli scuri su fondo chiaro.')}
-      ${d.hasLogo ? row(d.ecc === 'H' ? true : null, `Logo con correzione ${d.ecc}`, d.ecc === 'H' ? 'Ridondanza massima per compensare la zona coperta.' : 'Con un logo è consigliato il livello H.') : ''}
-      ${row(true, `Griglia ${d.modules}×${d.modules}`, 'Link più corti danno codici più radi, leggibili anche da lontano.')}
+      ${row(d.empty ? null : d.ok, t('scan.decode'), t(d.empty ? 'scan.decodeEmpty' : d.ok ? 'scan.decodeOk' : 'scan.decodeFail'))}
+      ${row(r >= 4.5 ? true : r >= 3 ? null : false, t('scan.contrast', { r: rs }), t(r >= 4.5 ? 'scan.contrastGood' : r >= 3 ? 'scan.contrastOk' : 'scan.contrastBad'))}
+      ${row(!d.contrast.inverted, t(d.contrast.inverted ? 'scan.inverted' : 'scan.polarity'), t(d.contrast.inverted ? 'scan.invertedText' : 'scan.polarityText'))}
+      ${d.hasLogo ? row(d.ecc === 'H' ? true : null, t('scan.logo', { ecc: d.ecc }), t(d.ecc === 'H' ? 'scan.logoH' : 'scan.logoAdvice')) : ''}
+      ${row(true, t('scan.grid', { n: d.modules }), t('scan.gridText'))}
     </ul>
-    ${tips.length ? `<div class="tips">${tips.map((t) => `<p>${t}</p>`).join('')}</div>` : ''}`;
-  hydrateIcons($('#scanDetails'));
+    ${tips.length ? `<div class="tips">${tips.map((x) => `<p>${x}</p>`).join('')}</div>` : ''}`;
 }
 
-/* ---------- panes ---------- */
+/* ---------- panes & simple / complete ---------- */
 
 const app = $('#app');
 const contentBody = $('#contentBody');
 const styleBody = $('#styleBody');
+let mode = prefs.get('mode', 'simple') === 'full' ? 'full' : 'simple';
 const openSections = new Set((() => {
   try { return JSON.parse(prefs.get('open', 'null')) || ['layout', 'modules', 'qrcolor', 'background']; } catch { return ['modules']; }
 })());
@@ -245,12 +257,27 @@ const openSections = new Set((() => {
 function renderPanes() {
   const s = store.get();
   const scrolls = [$('#contentPane').scrollTop, $('#stylePane').scrollTop];
-  contentBody.innerHTML = renderContent(s);
-  styleBody.innerHTML = renderStyle(s, openSections);
+  contentBody.innerHTML = renderContent(s, mode);
+  styleBody.innerHTML = renderStyle(s, openSections, mode);
   $('#contentPane').scrollTop = scrolls[0];
   $('#stylePane').scrollTop = scrolls[1];
   syncFormat();
 }
+
+function setMode(next) {
+  mode = next;
+  prefs.set('mode', mode);
+  app.dataset.mode = mode;
+  $('#modeSeg').querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === mode));
+  renderPanes();
+}
+$('#modeSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-value]');
+  if (b && b.dataset.value !== mode) setMode(b.dataset.value);
+});
+styleBody.addEventListener('click', (e) => {
+  if (e.target.closest('[data-mode="full"]')) setMode('full');
+});
 
 const paneOptions = {
   onUpload: handleUpload,
@@ -274,8 +301,10 @@ app.querySelector('.mobile-tabs').addEventListener('click', (e) => {
 let appliedPreset = null;
 const CONTENT_PATHS = /^(url|format|text\.(eyebrow|title|description|cta|showLink)|logo\.(type|icon|text|image))$/;
 
-$('#presetGrid').innerHTML = PRESETS.map((p) =>
-  `<button type="button" class="preset" role="listitem" data-preset="${p.id}" aria-label="Preset ${p.name}"><span class="thumb"></span><span class="preset-name">${p.name}</span></button>`).join('');
+$('#presetGrid').innerHTML = PRESETS.map((p) => {
+  const name = t(`preset.${p.id}`);
+  return `<button type="button" class="preset" role="listitem" data-preset="${p.id}" aria-label="${t('preset.aria', { name })}"><span class="thumb"></span><span class="preset-name">${name}</span></button>`;
+}).join('');
 
 function markPreset() {
   document.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-current', b.dataset.preset === appliedPreset));
@@ -284,8 +313,8 @@ function markPreset() {
 function renderSaved() {
   const saved = library.list();
   $('#savedGrid').innerHTML = saved.length
-    ? `<div class="presets">${saved.map((e) => `<div class="saved-item"><button type="button" class="preset" data-saved="${e.id}" aria-label="Apri ${e.name}"><span class="thumb"></span><span class="preset-name">${e.name}</span></button><button type="button" class="icon-btn" data-delete="${e.id}" title="Elimina" aria-label="Elimina ${e.name}">${icon('trash', 14)}</button></div>`).join('')}</div>`
-    : '<p class="empty">Salva il design per ritrovarlo qui. Resta in questo browser.</p>';
+    ? `<div class="presets">${saved.map((e) => `<div class="saved-item"><button type="button" class="preset" data-saved="${e.id}" aria-label="${t('saved.open', { name: e.name })}"><span class="thumb"></span><span class="preset-name">${e.name}</span></button><button type="button" class="icon-btn" data-delete="${e.id}" title="${t('saved.delete', { name: e.name })}" aria-label="${t('saved.delete', { name: e.name })}">${icon('trash', 14)}</button></div>`).join('')}</div>`
+    : `<p class="empty">${t('saved.empty')}</p>`;
   renderThumbs();
 }
 
@@ -303,24 +332,24 @@ function renderThumbs() {
   });
 }
 
-function applyStyle(patch, label, presetId = null) {
+function applyStyle(patch, message, presetId = null) {
   store.replace(deepMerge(store.get(), patch));
   appliedPreset = presetId;
   markPreset();
-  toast(label, { action: 'Annulla', onAction: undo });
+  withUndo(message);
 }
 
 $('#stylePane').addEventListener('click', (e) => {
   const preset = e.target.closest('[data-preset]');
   if (preset) {
     const p = PRESETS.find((x) => x.id === preset.dataset.preset);
-    return applyStyle(p.style, `Preset “${p.name}” applicato.`, p.id);
+    return applyStyle(p.style, t('toast.preset', { name: t(`preset.${p.id}`) }), p.id);
   }
   const del = e.target.closest('[data-delete]');
   if (del) {
     library.remove(del.dataset.delete);
     renderSaved();
-    return toast('Design eliminato.');
+    return toast(t('toast.deleted'));
   }
   const saved = e.target.closest('[data-saved]');
   if (saved) {
@@ -329,22 +358,22 @@ $('#stylePane').addEventListener('click', (e) => {
       store.replace(deepMerge(store.get(), entry.state));
       appliedPreset = null;
       markPreset();
-      toast(`“${entry.name}” aperto.`, { action: 'Annulla', onAction: undo });
+      withUndo(t('toast.opened', { name: entry.name }));
     }
   }
 });
 
 function shuffle() {
-  applyStyle(randomStyle(), 'Stile casuale applicato.');
+  applyStyle(randomStyle(), t('toast.random'));
 }
 
 function saveDesign() {
   const s = store.get();
-  const name = (s.text.title || s.url.replace(/^https?:\/\//, '') || 'Senza titolo').slice(0, 28);
+  const name = (s.text.title || s.url.replace(/^https?:\/\//, '') || t('saved.untitled')).slice(0, 28);
   const ok = library.save({ id: Date.now().toString(36), name, state: structuredClone(s) });
-  if (!ok) return toast('Spazio del browser esaurito. Prova con un logo più leggero.', { kind: 'error' });
+  if (!ok) return toast(t('toast.quota'), { kind: 'error' });
   renderSaved();
-  toast(`Salvato come “${name}”.`);
+  toast(t('toast.saved', { name }));
 }
 
 $('#shuffleBtn').addEventListener('click', shuffle);
@@ -374,24 +403,24 @@ async function downscale(dataUrl, max = 640) {
 }
 
 async function handleUpload(file, path = 'logo.image') {
-  if (!/^image\/(png|jpe?g|svg\+xml|webp|gif)$/.test(file.type)) return toast('Formato non supportato. Usa PNG, SVG, JPG o WEBP.', { kind: 'error' });
-  if (file.size > 10 * 1024 * 1024) return toast('Il file supera i 10 MB.', { kind: 'error' });
+  if (!/^image\/(png|jpe?g|svg\+xml|webp|gif)$/.test(file.type)) return toast(t('toast.badType'), { kind: 'error' });
+  if (file.size > 10 * 1024 * 1024) return toast(t('toast.tooBig'), { kind: 'error' });
   try {
     let url = await readFile(file);
     if (file.type !== 'image/svg+xml') url = await downscale(url);
     store.set(path, url, 'external');
     if (store.get().logo.type !== 'image') store.set('logo.type', 'image', 'external');
     ensureHighEcc();
-    toast('Logo caricato.');
+    toast(t('toast.logo'));
   } catch {
-    toast('Non riesco a leggere questa immagine.', { kind: 'error' });
+    toast(t('toast.readFail'), { kind: 'error' });
   }
 }
 
 function ensureHighEcc() {
   if (store.get().qr.ecc !== 'H') {
     store.set('qr.ecc', 'H', 'external');
-    toast('Correzione errori portata a H per compensare il logo.');
+    toast(t('toast.ecc'));
   }
 }
 
@@ -438,11 +467,11 @@ function adaptLayoutToFormat(s) {
   if (w / h > 1.2 && !sideBySide && s.layout !== 'qr-only') {
     store.set('layout', 'qr-right', 'external');
     if (s.text.align === 'center') store.set('text.align', 'left', 'external');
-    toast('Formato orizzontale: testo e QR affiancati.', { action: 'Annulla', onAction: undo });
+    withUndo(t('toast.landscape'));
   } else if (h >= w && sideBySide) {
     store.set('layout', 'qr-top', 'external');
     store.set('text.align', 'center', 'external');
-    toast('Formato verticale: QR sopra il testo.', { action: 'Annulla', onAction: undo });
+    withUndo(t('toast.portrait'));
   }
 }
 
@@ -459,15 +488,34 @@ $('#redoBtn').addEventListener('click', redo);
 
 /* ---------- appearance ---------- */
 
-function setAppearance(mode) {
-  if (mode === 'system') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = mode;
-  prefs.set('theme', mode === 'system' ? null : mode);
-  $('#themeSeg').querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === mode));
+function setAppearance(m) {
+  if (m === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = m;
+  prefs.set('theme', m === 'system' ? null : m);
+  $('#themeSeg').querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === m));
 }
 $('#themeSeg').addEventListener('click', (e) => {
   const b = e.target.closest('[data-value]');
   if (b) setAppearance(b.dataset.value);
+});
+
+/* ---------- language ---------- */
+
+$('#langCode').textContent = locale.toUpperCase();
+$('#langList').innerHTML = LOCALES.map((l) =>
+  `<a class="menu-item" role="menuitemradio" aria-checked="${l.code === locale}" href="${localeHref(l.code)}" hreflang="${l.hreflang}" lang="${l.hreflang}" data-lang="${l.code}"><span>${l.name}</span>${l.code === locale ? icon('check') : ''}</a>`).join('');
+$('#langList').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-lang]');
+  if (a) prefs.set('lang', a.dataset.lang); // remembered, so the root page stops auto-detecting
+});
+// The build writes these links into each page; fill them in during development.
+if (!$('#langLinks').children.length) {
+  $('#langLinks').innerHTML = LOCALES.filter((l) => l.code !== locale).map((l) =>
+    `<li><a href="${localeHref(l.code)}" hreflang="${l.hreflang}" lang="${l.hreflang}">${l.name}</a></li>`).join('');
+}
+$('#langLinks').addEventListener('click', (e) => {
+  const a = e.target.closest('a[hreflang]');
+  if (a) prefs.set('lang', LOCALES.find((l) => l.hreflang === a.getAttribute('hreflang'))?.code);
 });
 
 /* ---------- popovers ---------- */
@@ -477,7 +525,8 @@ function openPopover(pop, anchor, placement = 'below-end') {
   pop.hidden = false;
   const a = anchor.getBoundingClientRect();
   const w = pop.offsetWidth, h = pop.offsetHeight;
-  let left = placement.endsWith('end') ? a.right - w : a.left;
+  const end = placement.endsWith('end') !== (document.dir === 'rtl');
+  let left = end ? a.right - w : a.left;
   let top = placement.startsWith('above') ? a.top - h - 8 : a.bottom + 6;
   left = Math.max(12, Math.min(left, innerWidth - w - 12));
   top = Math.max(12, Math.min(top, innerHeight - h - 12));
@@ -504,7 +553,7 @@ function togglePopover(pop, anchor, placement) {
 }
 
 document.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.pop, #exportBtn, #scanBadge, #menuBtn')) return;
+  if (e.target.closest('.pop, #exportBtn, #scanBadge, #menuBtn, #langBtn')) return;
   closePopovers();
 });
 document.querySelectorAll('.pop [data-close], dialog [data-close]').forEach((b) =>
@@ -520,9 +569,10 @@ badge.addEventListener('click', () => {
   togglePopover($('#scanPop'), badge, 'above-start');
 });
 $('#menuBtn').addEventListener('click', () => togglePopover($('#menuPop'), $('#menuBtn')));
+$('#langBtn').addEventListener('click', () => togglePopover($('#langPop'), $('#langBtn')));
 $('#shortcutsBtn').addEventListener('click', () => { closePopovers(); $('#shortcuts').showModal(); });
+$('#aboutLink').addEventListener('click', () => closePopovers());
 $('#shortcuts').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
-if (REPO_URL) { $('#repoLink').href = REPO_URL; $('#repoLink').hidden = false; }
 
 /* ---------- export ---------- */
 
@@ -539,12 +589,7 @@ function syncExportUI() {
   $('#expDims').textContent = `${fmt.w * exp.scale} × ${fmt.h * exp.scale} px`;
   $('#expName').textContent = fileName(store.get(), exp.format);
   $('#expFmt').textContent = exp.format.toUpperCase();
-  $('#expHelp').textContent = {
-    png: 'Massima qualità, conserva la trasparenza. File più pesanti.',
-    jpg: 'File leggero, fondo bianco. Adatto a email e chat.',
-    webp: 'Leggero e con trasparenza. Adatto ai siti web.',
-    svg: 'Vettoriale con i font incorporati: scala a qualsiasi dimensione, ideale per la stampa.',
-  }[exp.format];
+  $('#expHelp').textContent = t(`export.help.${exp.format}`);
 }
 
 $('#expFormat').addEventListener('click', (e) => {
@@ -580,10 +625,10 @@ async function doDownload(btn = $('#downloadBtn')) {
       const blob = await exportBlob(s, exp.format, exp.scale);
       const name = fileName(s, exp.format);
       download(blob, name);
-      toast(`Scaricato ${name}`);
+      toast(t('toast.downloaded', { name }));
     } catch (e) {
       console.error(e);
-      toast('Esportazione non riuscita. Riprova.', { kind: 'error' });
+      toast(t('toast.exportFail'), { kind: 'error' });
     }
   });
 }
@@ -592,18 +637,18 @@ $('#downloadBtn').addEventListener('click', () => doDownload());
 $('#copyImgBtn').addEventListener('click', (e) => withBusy(e.currentTarget, async () => {
   try {
     await copyImage(store.get());
-    toast('Immagine copiata negli appunti.');
+    toast(t('toast.copied'));
   } catch {
-    toast('Questo browser non consente di copiare immagini.', { kind: 'error' });
+    toast(t('toast.copyFail'), { kind: 'error' });
   }
 }));
 $('#shareBtn').addEventListener('click', async () => {
   const s = store.get();
   try {
     await navigator.clipboard.writeText(shareUrl(s));
-    toast(s.logo.type === 'image' ? 'Link copiato. Il logo caricato non è incluso.' : 'Link al design copiato.');
+    toast(t(s.logo.type === 'image' ? 'toast.shareLogo' : 'toast.share'));
   } catch {
-    toast('Non riesco ad accedere agli appunti.', { kind: 'error' });
+    toast(t('toast.clipboardFail'), { kind: 'error' });
   }
 });
 
@@ -637,6 +682,8 @@ document.addEventListener('keydown', (e) => {
 
 hydrateIcons();
 setAppearance(prefs.get('theme', 'system'));
+app.dataset.mode = mode;
+$('#modeSeg').querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === mode));
 renderPanes();
 renderPreview();
 syncUrlField(true);

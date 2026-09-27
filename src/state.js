@@ -42,6 +42,9 @@ export function shareUrl(state) {
   return `${location.origin}${location.pathname}#d=${encodeShare(state)}`;
 }
 
+/** True when nothing was restored, so the starter text can be shown in the visitor's language. */
+export let isFresh = false;
+
 function initialState() {
   const hash = location.hash.match(/#d=([\w-]+)/);
   if (hash) {
@@ -50,7 +53,9 @@ function initialState() {
     if (shared) return deepMerge(DEFAULT_STATE, shared);
   }
   const saved = safe(() => JSON.parse(localStorage.getItem(STORAGE_KEY)), null);
-  return saved ? deepMerge(DEFAULT_STATE, saved) : clone(DEFAULT_STATE);
+  if (saved) return deepMerge(DEFAULT_STATE, saved);
+  isFresh = true;
+  return clone(DEFAULT_STATE);
 }
 
 /* ---------- store with undo/redo ---------- */
@@ -72,6 +77,15 @@ export const store = {
     setPath(state, path, value);
     this.emit(origin, path);
     this.scheduleCommit();
+  },
+
+  /** Swap the whole state without an undo step (used at start-up). */
+  reset(next) {
+    state = clone(next);
+    committed = clone(next);
+    past = [];
+    future = [];
+    this.emit('external');
   },
 
   replace(next, origin = 'external') {

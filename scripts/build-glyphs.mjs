@@ -10,7 +10,7 @@ const UI = {
   plus: 'plus', minus: 'minus', fit: 'corners-out', shuffle: 'shuffle', save: 'bookmark-simple',
   trash: 'trash', upload: 'upload-simple', alignLeft: 'text-align-left', alignCenter: 'text-align-center',
   alignRight: 'text-align-right', swap: 'arrows-left-right', keyboard: 'keyboard', github: 'github-logo',
-  caret: 'caret-down', info: 'info', share: 'share-network',
+  caret: 'caret-down', info: 'info', share: 'share-network', globe: 'globe-simple',
 };
 
 // Centre-logo icons. Keys are stored in saved designs — keep them stable.

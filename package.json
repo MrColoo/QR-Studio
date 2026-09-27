@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "glyphs": "node scripts/build-glyphs.mjs"
+    "glyphs": "node scripts/build-glyphs.mjs",
+    "assets": "node scripts/build-assets.mjs"
   },
   "type": "module",
   "dependencies": {
@@ -27,8 +28,10 @@
     "zxing-wasm": "^3.1.4"
   },
   "devDependencies": {
-    "vite": "^8.3.1",
-    "@phosphor-icons/core": "^2.1.1"
+    "@phosphor-icons/core": "^2.1.1",
+    "linkedom": "^0.18.13",
+    "sharp": "^0.35.4",
+    "vite": "^8.3.1"
   },
   "private": true,
   "license": "MIT",

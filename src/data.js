@@ -25,12 +25,12 @@ export const FONTS = {
 };
 
 export const FORMATS = {
-  square: { label: 'Quadrato', ratio: '1:1', w: 1080, h: 1080 },
-  portrait: { label: 'Post', ratio: '4:5', w: 1080, h: 1350 },
-  story: { label: 'Story', ratio: '9:16', w: 1080, h: 1920 },
-  poster: { label: 'Poster', ratio: 'A4', w: 1240, h: 1754 },
-  landscape: { label: 'Banner', ratio: '16:9', w: 1600, h: 900 },
-  card: { label: 'Biglietto', ratio: '7:4', w: 1050, h: 600 },
+  square: { ratio: '1:1', w: 1080, h: 1080 },
+  portrait: { ratio: '4:5', w: 1080, h: 1350 },
+  story: { ratio: '9:16', w: 1080, h: 1920 },
+  poster: { ratio: 'A4', w: 1240, h: 1754 },
+  landscape: { ratio: '16:9', w: 1600, h: 900 },
+  card: { ratio: '7:4', w: 1050, h: 600 },
 };
 
 // Centre-logo icons (Phosphor, 256×256 viewBox, filled).
@@ -70,10 +70,11 @@ export const DEFAULT_STATE = {
   plate: PAPER.plate,
   qr: { ecc: 'Q', ...PAPER.qr },
   text: {
-    eyebrow: 'Menu digitale',
-    title: 'Il menu di stasera, sempre aggiornato',
-    description: 'Inquadra il codice con la fotocamera del telefono.',
-    cta: 'Apri il menu',
+    // replaced with the visitor's language on first load (see main.js)
+    eyebrow: 'Digital menu',
+    title: 'Tonight’s menu, always up to date',
+    description: 'Point your phone’s camera at the code.',
+    cta: 'Open the menu',
     showLink: true,
     align: 'center',
     titleSize: 68, descSize: 28,
@@ -87,9 +88,9 @@ export const DEFAULT_STATE = {
 
 // Themes only carry style — content (link, texts, uploaded logo) is preserved on apply.
 export const PRESETS = [
-  { id: 'paper', name: 'Carta', style: PAPER },
+  { id: 'paper', style: PAPER },
   {
-    id: 'sunset', name: 'Sunset',
+    id: 'sunset',
     style: {
       bg: { type: 'linear', c1: '#ff8a4c', c2: '#ff2e74', c3: '#ffc15e', angle: 135, pattern: 'grain', patternOpacity: 0.2, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'glass', color: '#ffffff', opacity: 0.9, radius: 0.14, padding: 0.08, shadow: 'soft', shadowColor: '#7a1030', border: 0 },
@@ -100,7 +101,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'minimal', name: 'Minimal',
+    id: 'minimal',
     style: {
       bg: { type: 'solid', c1: '#f4f2ee', c2: '#e9e5dc', c3: '#ffffff', angle: 180, pattern: 'dots', patternOpacity: 0.55, patternColor: '#d6d0c4' },
       plate: { enabled: true, style: 'solid', color: '#ffffff', opacity: 1, radius: 0.06, padding: 0.08, shadow: 'soft', shadowColor: '#6b5f4a', border: 0 },
@@ -111,7 +112,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'neon', name: 'Neon',
+    id: 'neon',
     style: {
       bg: { type: 'radial', c1: '#0d1a12', c2: '#050507', c3: '#39ff88', angle: 0, pattern: 'grid', patternOpacity: 0.35, patternColor: '#1e3a28' },
       plate: { enabled: true, style: 'solid', color: '#0a110c', opacity: 1, radius: 0.08, padding: 0.09, shadow: 'glow', shadowColor: '#39ff88', border: 3, borderColor: '#39ff88' },
@@ -122,7 +123,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'forest', name: 'Forest',
+    id: 'forest',
     style: {
       bg: { type: 'radial', c1: '#2a4d37', c2: '#0f2418', c3: '#6b8f4e', angle: 0, pattern: 'grain', patternOpacity: 0.22, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'solid', color: '#f3efe3', opacity: 1, radius: 0.06, padding: 0.08, shadow: 'soft', shadowColor: '#050d08', border: 0 },
@@ -133,7 +134,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'pastel', name: 'Pastello',
+    id: 'pastel',
     style: {
       bg: { type: 'mesh', c1: '#fdf2f8', c2: '#c4b5fd', c3: '#fdba74', angle: 135, pattern: 'grain', patternOpacity: 0.14, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'glass', color: '#ffffff', opacity: 0.82, radius: 0.16, padding: 0.08, shadow: 'soft', shadowColor: '#7c3aed', border: 0 },
@@ -144,7 +145,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'brutal', name: 'Brutal',
+    id: 'brutal',
     style: {
       bg: { type: 'solid', c1: '#ffe14d', c2: '#ffe14d', c3: '#ffffff', angle: 0, pattern: 'lines', patternOpacity: 0.18, patternColor: '#000000' },
       plate: { enabled: true, style: 'solid', color: '#ffffff', opacity: 1, radius: 0, padding: 0.08, shadow: 'hard', shadowColor: '#000000', border: 6, borderColor: '#000000' },
@@ -155,7 +156,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'ocean', name: 'Ocean',
+    id: 'ocean',
     style: {
       bg: { type: 'linear', c1: '#38bdf8', c2: '#1e3a8a', c3: '#ffffff', angle: 160, pattern: 'dots', patternOpacity: 0.16, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'glass', color: '#ffffff', opacity: 0.9, radius: 0.2, padding: 0.09, shadow: 'soft', shadowColor: '#0b1b4a', border: 0 },
@@ -166,7 +167,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'luxe', name: 'Luxe',
+    id: 'luxe',
     style: {
       bg: { type: 'radial', c1: '#26211c', c2: '#0a0a0a', c3: '#c8a96a', angle: 0, pattern: 'grain', patternOpacity: 0.25, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'solid', color: '#f5efe6', opacity: 1, radius: 0.03, padding: 0.09, shadow: 'soft', shadowColor: '#000000', border: 0 },
@@ -177,7 +178,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'candy', name: 'Candy',
+    id: 'candy',
     style: {
       bg: { type: 'solid', c1: '#ff5fa2', c2: '#ff5fa2', c3: '#ffffff', angle: 0, pattern: 'dots', patternOpacity: 0.3, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'solid', color: '#ffffff', opacity: 1, radius: 0.22, padding: 0.09, shadow: 'hard', shadowColor: '#b0125e', border: 0 },
@@ -188,7 +189,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'galaxy', name: 'Galaxy',
+    id: 'galaxy',
     style: {
       bg: { type: 'mesh', c1: '#0a0118', c2: '#7b2ff7', c3: '#f107a3', angle: 135, pattern: 'grain', patternOpacity: 0.3, patternColor: '#ffffff' },
       plate: { enabled: true, style: 'glass', color: '#ffffff', opacity: 0.93, radius: 0.1, padding: 0.08, shadow: 'glow', shadowColor: '#b44dff', border: 0 },
@@ -199,7 +200,7 @@ export const PRESETS = [
     },
   },
   {
-    id: 'editorial', name: 'Editoriale',
+    id: 'editorial',
     style: {
       bg: { type: 'solid', c1: '#ffffff', c2: '#ffffff', c3: '#ffffff', angle: 0, pattern: 'none', patternOpacity: 0.2, patternColor: '#000000' },
       plate: { enabled: false, style: 'solid', color: '#ffffff', opacity: 1, radius: 0, padding: 0.06, shadow: 'none', shadowColor: '#000000', border: 0 },
