@@ -1,0 +1,655 @@
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/sora';
+import '@fontsource-variable/outfit';
+import '@fontsource-variable/space-grotesk';
+import '@fontsource-variable/bricolage-grotesque';
+import '@fontsource-variable/unbounded';
+import '@fontsource-variable/syne';
+import '@fontsource-variable/playfair-display';
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/jetbrains-mono';
+import './styles.css';
+
+import { FONTS, FORMATS, PRESETS } from './data.js';
+import { renderCard } from './render.js';
+import { store, library, deepMerge, shareUrl } from './state.js';
+import { renderContent, renderStyle, refresh, bindControls } from './controls.js';
+import { icon } from './icons.js';
+import { scanContrast, randomStyle } from './color.js';
+import { exportBlob, download, fileName, copyImage, verifyScan } from './export.js';
+
+// Set once the project is published, so the menu can link to the source.
+const REPO_URL = '';
+
+const $ = (sel) => document.querySelector(sel);
+const prefs = {
+  get(k, d) { try { return localStorage.getItem(`qr-studio:${k}`) ?? d; } catch { return d; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(`qr-studio:${k}`) : localStorage.setItem(`qr-studio:${k}`, v); } catch {} },
+};
+
+function hydrateIcons(root = document) {
+  root.querySelectorAll('[data-icon]').forEach((el) => {
+    if (el.dataset.hydrated) return;
+    el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon));
+    el.dataset.hydrated = '1';
+  });
+}
+
+/* ---------- toasts ---------- */
+
+function toast(message, { kind = 'info', action, onAction } = {}) {
+  const el = document.createElement('div');
+  el.className = `toast ${kind}`;
+  el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  el.innerHTML = `<span>${message}</span>${action ? `<button type="button">${action}</button>` : ''}`;
+  const close = () => { el.classList.remove('in'); setTimeout(() => el.remove(), 250); };
+  el.querySelector('button')?.addEventListener('click', () => { onAction?.(); close(); });
+  $('#toasts').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  setTimeout(close, action ? 5000 : 2600);
+}
+
+/* ---------- link ---------- */
+
+function normalizeUrl(v) {
+  v = v.trim();
+  if (!v) return '';
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return v;
+  if (/^[^\s/]+\.[^\s]{2,}/.test(v)) return `https://${v}`;
+  return v;
+}
+
+function urlValidity(v) {
+  if (!v) return 'empty';
+  try {
+    const u = new URL(v);
+    if (/^https?:$/.test(u.protocol)) return /\.[a-z]{2,}$/i.test(u.hostname) || u.hostname === 'localhost' ? 'ok' : 'warn';
+    return 'ok';
+  } catch {
+    return 'warn';
+  }
+}
+
+const urlInput = $('#url');
+function syncUrlField(force = false) {
+  const s = store.get();
+  if (force || document.activeElement !== urlInput) urlInput.value = s.url;
+  const state = urlValidity(s.url);
+  $('#urlField').dataset.state = state;
+  const n = lastRender?.modules;
+  $('#urlMeta').innerHTML =
+    state === 'empty' ? '<b>Serve un link.</b> Incollalo o scrivilo qui sopra.'
+    : state === 'warn' ? '<b>Non sembra un link completo.</b> Verrà codificato così com’è.'
+    : `Griglia ${n}×${n} · ${s.url.length} caratteri`;
+}
+
+urlInput.addEventListener('input', () => store.set('url', normalizeUrl(urlInput.value)));
+urlInput.addEventListener('blur', () => syncUrlField(true));
+urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') urlInput.blur(); });
+$('#pasteBtn').addEventListener('click', async () => {
+  try {
+    const text = (await navigator.clipboard.readText()).trim();
+    if (!text) return toast('Gli appunti sono vuoti.');
+    store.set('url', normalizeUrl(text));
+    syncUrlField(true);
+    toast('Link incollato.');
+  } catch {
+    urlInput.focus();
+    toast('Il browser non consente di leggere gli appunti. Usa ⌘V.', { kind: 'error' });
+  }
+});
+
+/* ---------- preview ---------- */
+
+const preview = $('#preview');
+const stageScroll = $('#stageScroll');
+let lastRender = null;
+let zoom = null; // null = fit
+let renderQueued = false;
+
+function fitScale() {
+  if (!lastRender) return 1;
+  const r = stageScroll.getBoundingClientRect();
+  const pad = r.width < 600 ? 48 : 112; // stage padding + room for crop marks
+  return Math.max(0.05, Math.min((r.width - pad) / lastRender.width, (r.height - pad) / lastRender.height));
+}
+
+function applyZoom() {
+  if (!lastRender) return;
+  const scale = zoom ?? fitScale();
+  preview.style.width = `${lastRender.width * scale}px`;
+  preview.style.height = `${lastRender.height * scale}px`;
+  const zv = $('#zoomValue');
+  zv.textContent = `${Math.round(scale * 100)}%`;
+  zv.setAttribute('aria-label', zoom == null ? `Zoom ${Math.round(scale * 100)}%, adattato alla finestra. Passa a 100%` : `Zoom ${Math.round(scale * 100)}%. Adatta alla finestra`);
+}
+
+function renderPreview() {
+  renderQueued = false;
+  const s = store.get();
+  lastRender = renderCard(s, { id: 'pv' });
+  preview.innerHTML = lastRender.svg;
+  preview.classList.toggle('transparent', s.bg.type === 'none');
+  preview.classList.toggle('rounded', s.card.radius > 0);
+  const fmt = FORMATS[s.format];
+  $('#sheetCaption').textContent = `${fmt.label} ${fmt.ratio} · ${fmt.w} × ${fmt.h} px`;
+  preview.setAttribute('aria-label', `Anteprima del QR code per ${s.url || 'nessun link'}`);
+  applyZoom();
+  syncUrlField();
+}
+
+function queueRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(renderPreview);
+}
+
+new ResizeObserver(() => applyZoom()).observe(stageScroll);
+
+const ZOOMS = [0.1, 0.15, 0.2, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.5, 2];
+function stepZoom(dir) {
+  const cur = zoom ?? fitScale();
+  const next = dir > 0 ? ZOOMS.find((z) => z > cur + 0.001) : [...ZOOMS].reverse().find((z) => z < cur - 0.001);
+  if (next) { zoom = next; applyZoom(); }
+}
+$('#zoomIn').addEventListener('click', () => stepZoom(1));
+$('#zoomOut').addEventListener('click', () => stepZoom(-1));
+$('#zoomValue').addEventListener('click', () => { zoom = zoom == null ? 1 : null; applyZoom(); });
+stageScroll.addEventListener('wheel', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  zoom = Math.min(2, Math.max(0.1, (zoom ?? fitScale()) * (e.deltaY < 0 ? 1.08 : 0.92)));
+  applyZoom();
+}, { passive: false });
+
+/* format switcher above the canvas */
+const formatSeg = $('#formatSeg');
+formatSeg.innerHTML = Object.entries(FORMATS).map(([k, f]) =>
+  `<button type="button" role="radio" data-value="${k}" aria-checked="false" title="${f.w} × ${f.h} px">${f.label}<small>${f.ratio}</small></button>`).join('');
+formatSeg.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-value]');
+  if (b) store.set('format', b.dataset.value);
+});
+function syncFormat() {
+  formatSeg.querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === store.get().format));
+}
+
+/* ---------- scan verification ---------- */
+
+let scanTimer, scanToken = 0, lastScan = null;
+const badge = $('#scanBadge');
+
+function setStatus(state, tag, detail = '') {
+  badge.dataset.state = state;
+  $('#scanTag').textContent = tag;
+  $('#scanDetail').textContent = detail;
+}
+
+function scheduleScan() {
+  clearTimeout(scanTimer);
+  setStatus('checking', 'Verifica', $('#scanDetail').textContent);
+  scanTimer = setTimeout(runScan, 500);
+}
+
+async function runScan() {
+  const token = ++scanToken;
+  const s = store.get();
+  let result = { ok: false };
+  try { result = await verifyScan(s); } catch (e) { console.warn(e); }
+  if (token !== scanToken) return;
+  const c = scanContrast(s);
+  lastScan = { ...result, contrast: c, hasLogo: s.logo.type !== 'none', ecc: s.qr.ecc, modules: lastRender?.modules, empty: !s.url };
+
+  const detail = `contrasto ${c.ratio.toFixed(1)}:1 · ${lastScan.modules}×${lastScan.modules} · ECC ${s.qr.ecc}`;
+  if (!s.url) setStatus('warn', 'Nessun link');
+  else if (!result.ok) setStatus('fail', 'Non leggibile', detail);
+  else if (c.ratio < 2) setStatus('fail', 'Contrasto insufficiente', detail);
+  else if (c.ratio < 3 || c.inverted) setStatus('warn', 'Leggibile, con riserva', detail);
+  else setStatus('ok', 'Leggibile', detail);
+  if (!$('#scanPop').hidden) renderScanDetails();
+}
+
+function renderScanDetails() {
+  const d = lastScan;
+  if (!d) return;
+  const row = (ok, title, text) =>
+    `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}">${icon(ok === true ? 'check' : 'warning')}<div><b>${title}</b><span>${text}</span></div></li>`;
+  const tips = [];
+  if (!d.empty && !d.ok) tips.push('Aumenta il contrasto tra moduli e piastra, scegli forme più piene (Quadrati, Morbidi, Liquidi) o alza la correzione errori.');
+  if (d.contrast.inverted) tips.push('Moduli chiari su fondo scuro: alcune app non li leggono. Per la stampa preferisci inchiostro scuro su fondo chiaro.');
+  if (d.hasLogo && d.ecc !== 'H') tips.push('Con un logo al centro imposta la correzione errori su H.');
+  const r = d.contrast.ratio;
+  $('#scanDetails').innerHTML = `
+    <ul class="checks">
+      ${row(d.empty ? null : d.ok, 'Decodifica', d.empty ? 'Aggiungi un link per generare il codice.' : d.ok ? 'L’anteprima è stata letta con ZXing, lo stesso motore di molte app di scansione.' : 'ZXing non riesce a leggere l’anteprima.')}
+      ${row(r >= 4.5 ? true : r >= 3 ? null : false, `Contrasto ${r.toFixed(1)}:1`, r >= 4.5 ? 'Ampio margine, anche con poca luce.' : r >= 3 ? 'Sufficiente a schermo, al limite in stampa.' : 'Troppo basso per una fotocamera: scurisci i moduli o schiarisci la piastra.')}
+      ${row(!d.contrast.inverted, d.contrast.inverted ? 'Colori invertiti' : 'Polarità standard', d.contrast.inverted ? 'Moduli chiari su fondo scuro.' : 'Moduli scuri su fondo chiaro.')}
+      ${d.hasLogo ? row(d.ecc === 'H' ? true : null, `Logo con correzione ${d.ecc}`, d.ecc === 'H' ? 'Ridondanza massima per compensare la zona coperta.' : 'Con un logo è consigliato il livello H.') : ''}
+      ${row(true, `Griglia ${d.modules}×${d.modules}`, 'Link più corti danno codici più radi, leggibili anche da lontano.')}
+    </ul>
+    ${tips.length ? `<div class="tips">${tips.map((t) => `<p>${t}</p>`).join('')}</div>` : ''}`;
+  hydrateIcons($('#scanDetails'));
+}
+
+/* ---------- panes ---------- */
+
+const app = $('#app');
+const contentBody = $('#contentBody');
+const styleBody = $('#styleBody');
+const openSections = new Set((() => {
+  try { return JSON.parse(prefs.get('open', 'null')) || ['layout', 'modules', 'qrcolor', 'background']; } catch { return ['modules']; }
+})());
+
+function renderPanes() {
+  const s = store.get();
+  const scrolls = [$('#contentPane').scrollTop, $('#stylePane').scrollTop];
+  contentBody.innerHTML = renderContent(s);
+  styleBody.innerHTML = renderStyle(s, openSections);
+  $('#contentPane').scrollTop = scrolls[0];
+  $('#stylePane').scrollTop = scrolls[1];
+  syncFormat();
+}
+
+const paneOptions = {
+  onUpload: handleUpload,
+  onToggleSection(id, open) {
+    open ? openSections.add(id) : openSections.delete(id);
+    prefs.set('open', JSON.stringify([...openSections]));
+  },
+};
+bindControls($('#contentPane'), store, paneOptions);
+bindControls(styleBody, store, paneOptions);
+
+app.querySelector('.mobile-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  app.dataset.view = b.dataset.view;
+  app.querySelectorAll('.mobile-tabs [data-view]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+});
+
+/* ---------- presets & saved designs ---------- */
+
+let appliedPreset = null;
+const CONTENT_PATHS = /^(url|format|text\.(eyebrow|title|description|cta|showLink)|logo\.(type|icon|text|image))$/;
+
+$('#presetGrid').innerHTML = PRESETS.map((p) =>
+  `<button type="button" class="preset" role="listitem" data-preset="${p.id}" aria-label="Preset ${p.name}"><span class="thumb"></span><span class="preset-name">${p.name}</span></button>`).join('');
+
+function markPreset() {
+  document.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-current', b.dataset.preset === appliedPreset));
+}
+
+function renderSaved() {
+  const saved = library.list();
+  $('#savedGrid').innerHTML = saved.length
+    ? `<div class="presets">${saved.map((e) => `<div class="saved-item"><button type="button" class="preset" data-saved="${e.id}" aria-label="Apri ${e.name}"><span class="thumb"></span><span class="preset-name">${e.name}</span></button><button type="button" class="icon-btn" data-delete="${e.id}" title="Elimina" aria-label="Elimina ${e.name}">${icon('trash', 14)}</button></div>`).join('')}</div>`
+    : '<p class="empty">Salva il design per ritrovarlo qui. Resta in questo browser.</p>';
+  renderThumbs();
+}
+
+let thumbTimer;
+function renderThumbs() {
+  const s = store.get();
+  document.querySelectorAll('[data-preset] .thumb').forEach((el, i) => {
+    const p = PRESETS.find((x) => x.id === el.parentElement.dataset.preset);
+    el.innerHTML = renderCard(deepMerge(s, p.style), { id: `t${i}` }).svg;
+  });
+  const saved = library.list();
+  document.querySelectorAll('[data-saved] .thumb').forEach((el, i) => {
+    const e = saved.find((x) => x.id === el.parentElement.dataset.saved);
+    if (e) el.innerHTML = renderCard(deepMerge(s, e.state), { id: `s${i}` }).svg;
+  });
+}
+
+function applyStyle(patch, label, presetId = null) {
+  store.replace(deepMerge(store.get(), patch));
+  appliedPreset = presetId;
+  markPreset();
+  toast(label, { action: 'Annulla', onAction: undo });
+}
+
+$('#stylePane').addEventListener('click', (e) => {
+  const preset = e.target.closest('[data-preset]');
+  if (preset) {
+    const p = PRESETS.find((x) => x.id === preset.dataset.preset);
+    return applyStyle(p.style, `Preset “${p.name}” applicato.`, p.id);
+  }
+  const del = e.target.closest('[data-delete]');
+  if (del) {
+    library.remove(del.dataset.delete);
+    renderSaved();
+    return toast('Design eliminato.');
+  }
+  const saved = e.target.closest('[data-saved]');
+  if (saved) {
+    const entry = library.list().find((x) => x.id === saved.dataset.saved);
+    if (entry) {
+      store.replace(deepMerge(store.get(), entry.state));
+      appliedPreset = null;
+      markPreset();
+      toast(`“${entry.name}” aperto.`, { action: 'Annulla', onAction: undo });
+    }
+  }
+});
+
+function shuffle() {
+  applyStyle(randomStyle(), 'Stile casuale applicato.');
+}
+
+function saveDesign() {
+  const s = store.get();
+  const name = (s.text.title || s.url.replace(/^https?:\/\//, '') || 'Senza titolo').slice(0, 28);
+  const ok = library.save({ id: Date.now().toString(36), name, state: structuredClone(s) });
+  if (!ok) return toast('Spazio del browser esaurito. Prova con un logo più leggero.', { kind: 'error' });
+  renderSaved();
+  toast(`Salvato come “${name}”.`);
+}
+
+$('#shuffleBtn').addEventListener('click', shuffle);
+$('#saveBtn').addEventListener('click', saveDesign);
+
+/* ---------- logo upload ---------- */
+
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function downscale(dataUrl, max = 640) {
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * k);
+  c.height = Math.round(img.naturalHeight * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/png');
+}
+
+async function handleUpload(file, path = 'logo.image') {
+  if (!/^image\/(png|jpe?g|svg\+xml|webp|gif)$/.test(file.type)) return toast('Formato non supportato. Usa PNG, SVG, JPG o WEBP.', { kind: 'error' });
+  if (file.size > 10 * 1024 * 1024) return toast('Il file supera i 10 MB.', { kind: 'error' });
+  try {
+    let url = await readFile(file);
+    if (file.type !== 'image/svg+xml') url = await downscale(url);
+    store.set(path, url, 'external');
+    if (store.get().logo.type !== 'image') store.set('logo.type', 'image', 'external');
+    ensureHighEcc();
+    toast('Logo caricato.');
+  } catch {
+    toast('Non riesco a leggere questa immagine.', { kind: 'error' });
+  }
+}
+
+function ensureHighEcc() {
+  if (store.get().qr.ecc !== 'H') {
+    store.set('qr.ecc', 'H', 'external');
+    toast('Correzione errori portata a H per compensare il logo.');
+  }
+}
+
+// Dropping an image anywhere on the canvas makes it the logo.
+const stage = $('#stage');
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+stage.addEventListener('dragenter', (e) => { if (hasFiles(e)) { dragDepth++; stage.classList.add('dragging'); } });
+stage.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; stage.classList.remove('dragging'); } });
+stage.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+stage.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  stage.classList.remove('dragging');
+  const file = e.dataTransfer.files[0];
+  if (file) handleUpload(file);
+});
+
+/* ---------- store wiring ---------- */
+
+store.subscribe((s, origin, path) => {
+  queueRender();
+  scheduleScan();
+  if (origin === 'external') {
+    renderPanes();
+  } else {
+    refresh($('#contentPane'), s);
+    refresh(styleBody, s);
+  }
+  if (path === 'format') syncFormat();
+  if (origin === 'control' && path && !CONTENT_PATHS.test(path) && appliedPreset) { appliedPreset = null; markPreset(); }
+  clearTimeout(thumbTimer);
+  thumbTimer = setTimeout(renderThumbs, 350);
+  if (path === 'layout' && /qr-(left|right)/.test(s.layout) && s.text.align === 'center') store.set('text.align', 'left', 'external');
+  if (path === 'format') adaptLayoutToFormat(s);
+  if (path === 'logo.type' && s.logo.type !== 'none' && !(s.logo.type === 'image' && !s.logo.image)) ensureHighEcc();
+  updateHistoryButtons();
+});
+
+// Wide canvases read best side-by-side, tall ones stacked.
+function adaptLayoutToFormat(s) {
+  const { w, h } = FORMATS[s.format];
+  const sideBySide = /qr-(left|right)/.test(s.layout);
+  if (w / h > 1.2 && !sideBySide && s.layout !== 'qr-only') {
+    store.set('layout', 'qr-right', 'external');
+    if (s.text.align === 'center') store.set('text.align', 'left', 'external');
+    toast('Formato orizzontale: testo e QR affiancati.', { action: 'Annulla', onAction: undo });
+  } else if (h >= w && sideBySide) {
+    store.set('layout', 'qr-top', 'external');
+    store.set('text.align', 'center', 'external');
+    toast('Formato verticale: QR sopra il testo.', { action: 'Annulla', onAction: undo });
+  }
+}
+
+function updateHistoryButtons() {
+  $('#undoBtn').disabled = !store.canUndo();
+  $('#redoBtn').disabled = !store.canRedo();
+}
+store.historyListeners.add(updateHistoryButtons);
+
+function undo() { store.undo(); }
+function redo() { store.redo(); }
+$('#undoBtn').addEventListener('click', undo);
+$('#redoBtn').addEventListener('click', redo);
+
+/* ---------- appearance ---------- */
+
+function setAppearance(mode) {
+  if (mode === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = mode;
+  prefs.set('theme', mode === 'system' ? null : mode);
+  $('#themeSeg').querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === mode));
+}
+$('#themeSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-value]');
+  if (b) setAppearance(b.dataset.value);
+});
+
+/* ---------- popovers ---------- */
+
+function openPopover(pop, anchor, placement = 'below-end') {
+  closePopovers(pop);
+  pop.hidden = false;
+  const a = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = placement.endsWith('end') ? a.right - w : a.left;
+  let top = placement.startsWith('above') ? a.top - h - 8 : a.bottom + 6;
+  left = Math.max(12, Math.min(left, innerWidth - w - 12));
+  top = Math.max(12, Math.min(top, innerHeight - h - 12));
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+  anchor.setAttribute('aria-expanded', 'true');
+  pop._anchor = anchor;
+  requestAnimationFrame(() => pop.classList.add('open'));
+  pop.querySelector('[aria-checked="true"], button, a')?.focus({ preventScroll: true });
+}
+
+function closePopovers(except) {
+  document.querySelectorAll('.pop').forEach((p) => {
+    if (p === except || p.hidden) return;
+    p.classList.remove('open');
+    p.hidden = true;
+    p._anchor?.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function togglePopover(pop, anchor, placement) {
+  if (!pop.hidden) { closePopovers(); anchor.focus(); return; }
+  openPopover(pop, anchor, placement);
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.pop, #exportBtn, #scanBadge, #menuBtn')) return;
+  closePopovers();
+});
+document.querySelectorAll('.pop [data-close], dialog [data-close]').forEach((b) =>
+  b.addEventListener('click', () => {
+    const pop = b.closest('.pop');
+    closePopovers();
+    pop?._anchor?.focus();
+    b.closest('dialog')?.close();
+  }));
+
+badge.addEventListener('click', () => {
+  renderScanDetails();
+  togglePopover($('#scanPop'), badge, 'above-start');
+});
+$('#menuBtn').addEventListener('click', () => togglePopover($('#menuPop'), $('#menuBtn')));
+$('#shortcutsBtn').addEventListener('click', () => { closePopovers(); $('#shortcuts').showModal(); });
+$('#shortcuts').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+if (REPO_URL) { $('#repoLink').href = REPO_URL; $('#repoLink').hidden = false; }
+
+/* ---------- export ---------- */
+
+const exp = {
+  format: prefs.get('expFormat', 'png'),
+  scale: +prefs.get('expScale', '2'),
+};
+
+function syncExportUI() {
+  const fmt = FORMATS[store.get().format];
+  $('#expFormat').querySelectorAll('[role=radio]').forEach((b) => b.setAttribute('aria-checked', b.dataset.value === exp.format));
+  $('#expScale').querySelectorAll('[role=radio]').forEach((b) => b.setAttribute('aria-checked', +b.dataset.value === exp.scale));
+  $('#expScaleField').hidden = exp.format === 'svg';
+  $('#expDims').textContent = `${fmt.w * exp.scale} × ${fmt.h * exp.scale} px`;
+  $('#expName').textContent = fileName(store.get(), exp.format);
+  $('#expFmt').textContent = exp.format.toUpperCase();
+  $('#expHelp').textContent = {
+    png: 'Massima qualità, conserva la trasparenza. File più pesanti.',
+    jpg: 'File leggero, fondo bianco. Adatto a email e chat.',
+    webp: 'Leggero e con trasparenza. Adatto ai siti web.',
+    svg: 'Vettoriale con i font incorporati: scala a qualsiasi dimensione, ideale per la stampa.',
+  }[exp.format];
+}
+
+$('#expFormat').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-value]');
+  if (!b) return;
+  exp.format = b.dataset.value;
+  prefs.set('expFormat', exp.format);
+  syncExportUI();
+});
+$('#expScale').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-value]');
+  if (!b) return;
+  exp.scale = +b.dataset.value;
+  prefs.set('expScale', exp.scale);
+  syncExportUI();
+});
+
+$('#exportBtn').addEventListener('click', () => {
+  syncExportUI();
+  togglePopover($('#exportPop'), $('#exportBtn'));
+});
+
+async function withBusy(btn, fn) {
+  if (btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  try { await fn(); } finally { btn.classList.remove('busy'); }
+}
+
+async function doDownload(btn = $('#downloadBtn')) {
+  await withBusy(btn, async () => {
+    try {
+      const s = store.get();
+      const blob = await exportBlob(s, exp.format, exp.scale);
+      const name = fileName(s, exp.format);
+      download(blob, name);
+      toast(`Scaricato ${name}`);
+    } catch (e) {
+      console.error(e);
+      toast('Esportazione non riuscita. Riprova.', { kind: 'error' });
+    }
+  });
+}
+
+$('#downloadBtn').addEventListener('click', () => doDownload());
+$('#copyImgBtn').addEventListener('click', (e) => withBusy(e.currentTarget, async () => {
+  try {
+    await copyImage(store.get());
+    toast('Immagine copiata negli appunti.');
+  } catch {
+    toast('Questo browser non consente di copiare immagini.', { kind: 'error' });
+  }
+}));
+$('#shareBtn').addEventListener('click', async () => {
+  const s = store.get();
+  try {
+    await navigator.clipboard.writeText(shareUrl(s));
+    toast(s.logo.type === 'image' ? 'Link copiato. Il logo caricato non è incluso.' : 'Link al design copiato.');
+  } catch {
+    toast('Non riesco ad accedere agli appunti.', { kind: 'error' });
+  }
+});
+
+/* ---------- keyboard ---------- */
+
+document.addEventListener('keydown', (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  const key = e.key.toLowerCase();
+  const typing = e.target.matches('input[type=text], input[type=url], textarea');
+
+  if (e.key === 'Escape' && document.querySelector('.pop:not([hidden])')) {
+    const anchor = document.querySelector('.pop:not([hidden])')._anchor;
+    closePopovers();
+    anchor?.focus();
+    return;
+  }
+  if (mod && key === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && key === 'y' && !typing) { e.preventDefault(); redo(); return; }
+  if (mod && key === 's') { e.preventDefault(); doDownload(); return; }
+  if (mod && key === 'e') { e.preventDefault(); $('#exportBtn').click(); return; }
+  if (mod || e.altKey || typing) return;
+
+  if (key === 'r') shuffle();
+  else if (key === '?') $('#shortcuts').showModal();
+  else if (key === '+' || key === '=') stepZoom(1);
+  else if (key === '-') stepZoom(-1);
+  else if (key === '0') { zoom = null; applyZoom(); }
+});
+
+/* ---------- boot ---------- */
+
+hydrateIcons();
+setAppearance(prefs.get('theme', 'system'));
+renderPanes();
+renderPreview();
+syncUrlField(true);
+renderSaved();
+markPreset();
+scheduleScan();
+updateHistoryButtons();
+
+// Re-measure text once every web font is actually available.
+Promise.all(Object.values(FONTS).map((f) => document.fonts.load(`400 32px "${f.family}"`)))
+  .catch(() => {})
+  .then(() => {
+    renderPreview();
+    renderThumbs();
+    scheduleScan();
+  });

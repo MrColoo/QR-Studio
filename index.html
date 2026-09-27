@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Studio — generatore di QR code personalizzati</title>
+    <meta name="description" content="Crea QR code personalizzati con testo, logo e stile su misura. Gratuito, open source, funziona interamente nel browser." />
+    <meta name="theme-color" content="#f4f3f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content="QR Studio" />
+    <meta property="og:description" content="QR code personalizzati con testo, logo e stile su misura. Open source, tutto nel browser." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a1a19'/%3E%3Cpath d='M8 8h10v10H8z' fill='none' stroke='%23fbfbfa' stroke-width='3'/%3E%3Crect x='11.5' y='11.5' width='3' height='3' fill='%23fbfbfa'/%3E%3Crect x='20' y='20' width='4' height='4' fill='%23fbfbfa'/%3E%3C/svg%3E" />
+    <script>
+      try {
+        const t = localStorage.getItem('qr-studio:theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#stage">Vai all’anteprima</a>
+
+    <div class="app" id="app" data-view="content">
+      <header class="bar">
+        <a class="wordmark" href="./" aria-label="QR Studio, ricarica">
+          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="5" y="5" width="3" height="3" fill="currentColor"/><rect x="14" y="14" width="4.5" height="4.5" fill="currentColor"/></svg>
+          <span>QR Studio</span>
+        </a>
+        <div class="bar-actions">
+          <button class="icon-btn" id="undoBtn" type="button" title="Annulla (⌘Z)" aria-label="Annulla" data-icon="undo" disabled></button>
+          <button class="icon-btn" id="redoBtn" type="button" title="Ripeti (⇧⌘Z)" aria-label="Ripeti" data-icon="redo" disabled></button>
+          <span class="sep" aria-hidden="true"></span>
+          <button class="icon-btn" id="menuBtn" type="button" title="Altro" aria-label="Altre opzioni" aria-haspopup="true" aria-expanded="false" data-icon="more"></button>
+          <button class="btn primary" id="exportBtn" type="button" aria-haspopup="dialog" aria-expanded="false"><span data-icon="download"></span>Esporta</button>
+        </div>
+      </header>
+
+      <aside class="pane pane-left" id="contentPane" aria-label="Contenuto">
+        <section class="block" aria-labelledby="h-link">
+          <h2 id="h-link"><span class="n">01</span>Link</h2>
+          <div class="url" id="urlField">
+            <input id="url" type="url" inputmode="url" placeholder="https://…" autocomplete="off" spellcheck="false" aria-describedby="urlMeta" aria-label="Link da codificare" />
+            <button class="icon-btn" id="pasteBtn" type="button" title="Incolla dagli appunti" aria-label="Incolla dagli appunti" data-icon="paste"></button>
+          </div>
+          <p class="url-meta" id="urlMeta" aria-live="polite"></p>
+        </section>
+        <div id="contentBody"></div>
+      </aside>
+
+      <main class="stage" id="stage" tabindex="-1">
+        <div class="stage-head">
+          <div class="seg formats" id="formatSeg" role="radiogroup" aria-label="Formato"></div>
+        </div>
+        <div class="stage-scroll" id="stageScroll">
+          <div class="sheet" id="sheet">
+            <i class="crop tl"></i><i class="crop tr"></i><i class="crop bl"></i><i class="crop br"></i>
+            <div class="preview" id="preview" role="img"></div>
+            <span class="sheet-caption" id="sheetCaption"></span>
+          </div>
+          <div class="drop-hint" aria-hidden="true">Rilascia l’immagine per usarla come logo</div>
+        </div>
+        <footer class="stage-foot">
+          <button class="status" id="scanBadge" type="button" data-state="checking" aria-haspopup="dialog" aria-expanded="false">
+            <span class="tag" id="scanTag">Verifica</span><span class="detail" id="scanDetail"></span>
+          </button>
+          <div class="zoom" role="group" aria-label="Zoom">
+            <button class="icon-btn" id="zoomOut" type="button" title="Riduci (−)" aria-label="Riduci" data-icon="minus"></button>
+            <button class="zoom-value" id="zoomValue" type="button" title="Adatta / 100% (0)"></button>
+            <button class="icon-btn" id="zoomIn" type="button" title="Ingrandisci (+)" aria-label="Ingrandisci" data-icon="plus"></button>
+          </div>
+        </footer>
+      </main>
+
+      <aside class="pane pane-right" id="stylePane" aria-label="Stile">
+        <section class="block" aria-labelledby="h-presets">
+          <div class="block-head">
+            <h2 id="h-presets">Preset</h2>
+            <button class="text-btn" id="shuffleBtn" type="button" title="Stile casuale (R)"><span data-icon="shuffle"></span>Casuale</button>
+          </div>
+          <div class="presets" id="presetGrid" role="list"></div>
+        </section>
+        <section class="block" aria-labelledby="h-saved">
+          <div class="block-head">
+            <h2 id="h-saved">I tuoi design</h2>
+            <button class="text-btn" id="saveBtn" type="button"><span data-icon="save"></span>Salva</button>
+          </div>
+          <div id="savedGrid"></div>
+        </section>
+        <div id="styleBody"></div>
+      </aside>
+
+      <nav class="mobile-tabs" aria-label="Pannelli">
+        <button type="button" data-view="content" aria-pressed="true">Contenuto</button>
+        <button type="button" data-view="style" aria-pressed="false">Stile</button>
+      </nav>
+    </div>
+
+    <!-- Export -->
+    <div class="pop" id="exportPop" role="dialog" aria-labelledby="exportTitle" hidden>
+      <div class="pop-head">
+        <h3 id="exportTitle">Esporta</h3>
+        <button class="icon-btn" data-close type="button" aria-label="Chiudi" data-icon="close"></button>
+      </div>
+      <div class="field">
+        <div class="field-head"><span class="field-label">Formato</span></div>
+        <div class="seg" id="expFormat" role="radiogroup" aria-label="Formato del file">
+          <button type="button" role="radio" data-value="png" aria-checked="true">PNG</button>
+          <button type="button" role="radio" data-value="jpg" aria-checked="false">JPG</button>
+          <button type="button" role="radio" data-value="webp" aria-checked="false">WEBP</button>
+          <button type="button" role="radio" data-value="svg" aria-checked="false">SVG</button>
+        </div>
+      </div>
+      <div class="field" id="expScaleField">
+        <div class="field-head"><span class="field-label">Risoluzione</span><span class="count" id="expDims"></span></div>
+        <div class="seg" id="expScale" role="radiogroup" aria-label="Risoluzione">
+          <button type="button" role="radio" data-value="1" aria-checked="false">1×</button>
+          <button type="button" role="radio" data-value="2" aria-checked="true">2×</button>
+          <button type="button" role="radio" data-value="3" aria-checked="false">3×</button>
+          <button type="button" role="radio" data-value="4" aria-checked="false">4×</button>
+        </div>
+      </div>
+      <p class="note" id="expHelp"></p>
+      <button class="btn primary block" id="downloadBtn" type="button"><span data-icon="download"></span>Scarica <span id="expFmt">PNG</span></button>
+      <p class="filename" id="expName"></p>
+      <div class="pop-actions">
+        <button class="btn" id="copyImgBtn" type="button"><span data-icon="copy"></span>Copia immagine</button>
+        <button class="btn" id="shareBtn" type="button"><span data-icon="share"></span>Copia link al design</button>
+      </div>
+    </div>
+
+    <!-- Scan details -->
+    <div class="pop pop-up" id="scanPop" role="dialog" aria-labelledby="scanTitle" hidden>
+      <div class="pop-head">
+        <h3 id="scanTitle">Leggibilità</h3>
+        <button class="icon-btn" data-close type="button" aria-label="Chiudi" data-icon="close"></button>
+      </div>
+      <div id="scanDetails"></div>
+    </div>
+
+    <!-- Menu -->
+    <div class="pop pop-menu" id="menuPop" role="menu" aria-label="Altre opzioni" hidden>
+      <div class="menu-group">
+        <span class="field-label">Aspetto</span>
+        <div class="seg" id="themeSeg" role="radiogroup" aria-label="Aspetto">
+          <button type="button" role="radio" data-value="system" aria-checked="true">Sistema</button>
+          <button type="button" role="radio" data-value="light" aria-checked="false">Chiaro</button>
+          <button type="button" role="radio" data-value="dark" aria-checked="false">Scuro</button>
+        </div>
+      </div>
+      <button class="menu-item" type="button" role="menuitem" id="shortcutsBtn"><span data-icon="keyboard"></span>Scorciatoie da tastiera<kbd>?</kbd></button>
+      <a class="menu-item" role="menuitem" id="repoLink" href="#" target="_blank" rel="noopener" hidden><span data-icon="github"></span>Codice sorgente</a>
+    </div>
+
+    <dialog class="dialog" id="shortcuts" aria-labelledby="shortcutsTitle">
+      <div class="pop-head">
+        <h3 id="shortcutsTitle">Scorciatoie da tastiera</h3>
+        <button class="icon-btn" data-close type="button" aria-label="Chiudi" data-icon="close"></button>
+      </div>
+      <dl class="keys">
+        <dt><kbd>⌘</kbd><kbd>Z</kbd></dt><dd>Annulla</dd>
+        <dt><kbd>⇧</kbd><kbd>⌘</kbd><kbd>Z</kbd></dt><dd>Ripeti</dd>
+        <dt><kbd>⌘</kbd><kbd>S</kbd></dt><dd>Scarica con le ultime impostazioni</dd>
+        <dt><kbd>⌘</kbd><kbd>E</kbd></dt><dd>Apri l’esportazione</dd>
+        <dt><kbd>R</kbd></dt><dd>Stile casuale</dd>
+        <dt><kbd>+</kbd><kbd>−</kbd><kbd>0</kbd></dt><dd>Zoom, adatta alla finestra</dd>
+        <dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Sui valori numerici: ±1 passo, con <kbd>⇧</kbd> ±10</dd>
+      </dl>
+    </dialog>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

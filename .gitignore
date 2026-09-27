@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+
+# local agent tooling, not part of the app
+.claude/
+.agents/
+skills-lock.json
